@@ -58,10 +58,10 @@ export const Footer = () => {
             <Typography variant="h6" color="text.primary" gutterBottom>
               Quick Links
             </Typography>
-            <Link href="/analyzer" color="text.secondary" display="block">
+            <Link href="/waste-analyzer" color="text.secondary" display="block">
               Waste Analyzer
             </Link>
-            <Link href="/management" color="text.secondary" display="block">
+            <Link href="/waste-management" color="text.secondary" display="block">
               Waste Management
             </Link>
             <Link href="/blog" color="text.secondary" display="block">
@@ -76,19 +76,19 @@ export const Footer = () => {
               Contact Us
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Email: info@ecosort.com
+              Email: info@ecosort.net
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Phone: +1 (555) 123-4567
+              Phone: +919293110737
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Address: 123 Green Street, Eco City, EC 12345
+              Address: 9 IVRCL ISB Road Financial Dist Hyd India 500032
             </Typography>
           </Grid>
         </Grid>
         <Divider sx={{ mt: 4, mb: 2 }} />
         <Typography variant="body2" color="text.secondary" align="center">
-          © {new Date().getFullYear()} EcoSort. All rights reserved.
+          {new Date().getFullYear()} EcoSort. All rights reserved.
         </Typography>
       </Container>
     </Box>

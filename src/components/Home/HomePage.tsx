@@ -1,235 +1,173 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Container,
   Typography,
-  Paper,
+  Button,
   Grid,
-  IconButton,
   Card,
   CardContent,
-  LinearProgress,
-  Chip
+  CardMedia,
+  Stack,
+  Paper,
 } from '@mui/material';
-import { Upload, DeleteOutline } from '@mui/icons-material';
-import { WasteType, ClassificationResult } from '../../types';
+import { styled } from '@mui/material/styles';
+import {
+  Analytics,
+  RecyclingOutlined,
+  Calculate,
+  Article,
+} from '@mui/icons-material';
+import { Link } from 'react-router-dom';
+import { WasteAnalyzer } from '../WasteAnalyzer/WasteAnalyzer';
 
-const wasteTypeColors: Record<WasteType, string> = {
-  dry: '#4caf50',
-  wet: '#2196f3',
-  plastic: '#ff9800',
-  hazardous: '#f44336',
-  unknown: '#757575'
-};
+const HeroSection = styled(Box)(({ theme }) => ({
+  background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?ixlib=rb-4.0.3')`,
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  color: 'white',
+  padding: theme.spacing(15, 0),
+  textAlign: 'center',
+}));
+
+const StatsCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  textAlign: 'center',
+  background: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[3],
+}));
+
+const features = [
+  {
+    title: 'Waste Analyzer',
+    description: 'Upload images of waste items for instant AI-powered classification',
+    icon: <Analytics color="primary" sx={{ fontSize: 40 }} />,
+    path: '/analyzer',
+  },
+  {
+    title: 'Waste Management',
+    description: 'Learn about effective waste management methodologies',
+    icon: <RecyclingOutlined color="primary" sx={{ fontSize: 40 }} />,
+    path: '/management',
+  },
+  {
+    title: 'Tools & Calculators',
+    description: 'Calculate your waste footprint and environmental impact',
+    icon: <Calculate color="primary" sx={{ fontSize: 40 }} />,
+    path: '/tools',
+  },
+  {
+    title: 'Blog & Resources',
+    description: 'Stay updated with the latest in sustainable waste management',
+    icon: <Article color="primary" sx={{ fontSize: 40 }} />,
+    path: '/blog',
+  },
+];
 
 export const HomePage: React.FC = () => {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [results, setResults] = useState<ClassificationResult | null>(null);
-
-  // Temporary mock classification for testing
-  const mockClassify = async (image: string) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return {
-      wasteType: 'plastic' as WasteType,
-      confidence: 0.85,
-      timestamp: new Date(),
-      imageUrl: image
-    };
-  };
-
-  const handleImageUpload = async (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const imageData = e.target?.result as string;
-      setSelectedImage(imageData);
-      const result = await mockClassify(imageData);
-      setResults(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      handleImageUpload(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageUpload(file);
-    }
-  };
-
-  const clearImage = () => {
-    setSelectedImage(null);
-    setResults(null);
-  };
-
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        Waste Classification System
-      </Typography>
-      
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={6}>
-          <Paper
-            sx={{
-              p: 3,
-              height: 400,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: isDragging ? '2px dashed #2196f3' : '2px dashed #ccc',
-              bgcolor: isDragging ? 'rgba(33, 150, 243, 0.1)' : 'background.paper',
-              cursor: 'pointer',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
+    <Box>
+      <HeroSection>
+        <Container>
+          <Typography variant="h2" component="h1" gutterBottom>
+            Smart Waste Classification
+          </Typography>
+          <Typography variant="h5" gutterBottom sx={{ mb: 4 }}>
+            Revolutionizing waste management with AI technology
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            component="a"
+            href="#waste-analyzer"
+            sx={{ mr: 2 }}
           >
-            {selectedImage ? (
-              <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
-                <img
-                  src={selectedImage}
-                  alt="Uploaded waste"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain'
-                  }}
-                />
-                <IconButton
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'rgba(0, 0, 0, 0.5)',
-                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.7)' }
-                  }}
-                  onClick={clearImage}
-                >
-                  <DeleteOutline sx={{ color: 'white' }} />
-                </IconButton>
-              </Box>
-            ) : (
-              <>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileInput}
-                  style={{ display: 'none' }}
-                  id="image-upload"
-                />
-                <label htmlFor="image-upload">
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Upload sx={{ fontSize: 60, color: 'text.secondary' }} />
-                    <Typography variant="h6" color="text.secondary">
-                      Drag & Drop or Click to Upload
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Supports: JPG, PNG, JPEG
-                    </Typography>
-                  </Box>
-                </label>
-              </>
-            )}
-          </Paper>
-        </Grid>
+            Try Waste Analyzer
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            component={Link}
+            to="/management"
+            sx={{ color: 'white', borderColor: 'white' }}
+          >
+            Learn More
+          </Button>
+        </Container>
+      </HeroSection>
 
-        <Grid item xs={12} md={6}>
-          {results ? (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Classification Results
-                </Typography>
-                
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Waste Type
+      <Container sx={{ my: 8 }}>
+        <Typography variant="h3" component="h2" textAlign="center" gutterBottom>
+          Our Features
+        </Typography>
+        <Grid container spacing={4} sx={{ mt: 2 }}>
+          {features.map((feature) => (
+            <Grid item xs={12} sm={6} md={3} key={feature.title}>
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: '0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: 8,
+                  },
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
+                  {feature.icon}
+                  <Typography variant="h6" component="h3" sx={{ mt: 2 }}>
+                    {feature.title}
                   </Typography>
-                  <Chip
-                    label={results.wasteType.toUpperCase()}
-                    sx={{
-                      bgcolor: wasteTypeColors[results.wasteType],
-                      color: 'white',
-                      fontSize: '1rem',
-                      py: 1
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Confidence Level
+                  <Typography color="text.secondary">
+                    {feature.description}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={results.confidence * 100}
-                      sx={{
-                        height: 10,
-                        borderRadius: 5,
-                        flexGrow: 1,
-                        bgcolor: 'grey.200',
-                        '& .MuiLinearProgress-bar': {
-                          bgcolor: wasteTypeColors[results.wasteType]
-                        }
-                      }}
-                    />
-                    <Typography variant="body1">
-                      {(results.confidence * 100).toFixed(1)}%
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Typography variant="subtitle1" gutterBottom>
-                  Timestamp
-                </Typography>
-                <Typography variant="body1">
-                  {results.timestamp.toLocaleString()}
-                </Typography>
-              </CardContent>
-            </Card>
-          ) : (
-            <Paper
-              sx={{
-                p: 3,
-                height: 400,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'grey.100'
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" align="center">
-                Upload an image to see classification results
-              </Typography>
-            </Paper>
-          )}
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
-      </Grid>
-    </Container>
+      </Container>
+
+      <Box sx={{ bgcolor: 'background.paper', py: 8 }}>
+        <Container>
+          <Typography variant="h3" component="h2" textAlign="center" gutterBottom>
+            Impact Statistics
+          </Typography>
+          <Grid container spacing={4} sx={{ mt: 2 }}>
+            <Grid item xs={12} sm={4}>
+              <StatsCard>
+                <Typography variant="h3" color="primary">1M+</Typography>
+                <Typography variant="h6">Items Classified</Typography>
+              </StatsCard>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <StatsCard>
+                <Typography variant="h3" color="primary">85%</Typography>
+                <Typography variant="h6">Classification Accuracy</Typography>
+              </StatsCard>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <StatsCard>
+                <Typography variant="h3" color="primary">50K+</Typography>
+                <Typography variant="h6">Active Users</Typography>
+              </StatsCard>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+
+      <Container sx={{ my: 8 }} id="waste-analyzer">
+        <Typography variant="h3" component="h2" textAlign="center" gutterBottom>
+          Try Our Waste Analyzer
+        </Typography>
+        <Typography variant="body1" textAlign="center" sx={{ mb: 4 }}>
+          Upload an image of any waste item to get instant AI-powered classification
+        </Typography>
+        <WasteAnalyzer />
+      </Container>
+    </Box>
   );
 };

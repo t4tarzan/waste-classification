@@ -65,10 +65,10 @@ export const Navbar = () => {
 
   return (
     <>
-      <AppBar position="fixed" sx={{ backgroundColor: 'background.paper' }}>
+      <AppBar position="fixed" sx={{ backgroundColor: 'background.paper', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <IconButton
-            color="inherit"
+            color="primary"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}

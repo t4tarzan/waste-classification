@@ -20,7 +20,6 @@ import { HouseholdWasteCalculator } from './Calculators/HouseholdWasteCalculator
 import { BusinessWasteCalculator } from './Calculators/BusinessWasteCalculator';
 import { RecyclingImpactCalculator } from './Calculators/RecyclingImpactCalculator';
 import { CompostingCalculator } from './Calculators/CompostingCalculator';
-import { ToolsOverview } from './ToolsOverview';
 import { CalculatorPage } from './CalculatorPage';
 
 // Dynamic icon component
@@ -152,7 +151,6 @@ export const ToolsPage = () => {
       </Grid>
 
       <Routes>
-        <Route path="/" element={<ToolsOverview categories={categories} calculators={calculators} />} />
         <Route path="/calculators/household-waste" element={<HouseholdWasteCalculator />} />
         <Route path="/calculators/business-waste" element={<BusinessWasteCalculator />} />
         <Route path="/calculators/recycling-impact" element={<RecyclingImpactCalculator />} />

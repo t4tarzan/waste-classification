@@ -43,13 +43,13 @@ const features = [
     title: 'Waste Analyzer',
     description: 'Upload images of waste items for instant AI-powered classification',
     icon: <Analytics color="primary" sx={{ fontSize: 40 }} />,
-    path: '/analyzer',
+    path: '/waste-analyzer',
   },
   {
     title: 'Waste Management',
     description: 'Learn about effective waste management methodologies',
     icon: <RecyclingOutlined color="primary" sx={{ fontSize: 40 }} />,
-    path: '/management',
+    path: '/waste-management',
   },
   {
     title: 'Tools & Calculators',
@@ -89,7 +89,7 @@ export const HomePage: React.FC = () => {
             variant="outlined"
             size="large"
             component={Link}
-            to="/management"
+            to="/waste-management"
             sx={{ color: 'white', borderColor: 'white' }}
           >
             Learn More
@@ -105,14 +105,20 @@ export const HomePage: React.FC = () => {
           {features.map((feature) => (
             <Grid item xs={12} sm={6} md={3} key={feature.title}>
               <Card
+                component={Link}
+                to={feature.path}
                 sx={{
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   transition: '0.3s',
+                  textDecoration: 'none',
+                  color: 'inherit',
                   '&:hover': {
                     transform: 'translateY(-5px)',
-                    boxShadow: 8,
+                    boxShadow: (theme) => theme.shadows[8],
+                    cursor: 'pointer',
+                    backgroundColor: (theme) => theme.palette.action.hover,
                   },
                 }}
               >

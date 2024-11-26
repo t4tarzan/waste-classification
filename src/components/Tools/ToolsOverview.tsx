@@ -5,7 +5,6 @@ import { Calculator, CalculatorCategory } from './types';
 import * as Icons from '@mui/icons-material';
 
 interface ToolsOverviewProps {
-  categories: CalculatorCategory[];
   calculators: Calculator[];
 }
 
@@ -14,38 +13,26 @@ const DynamicIcon = ({ iconName }: { iconName: string }) => {
   return IconComponent ? <IconComponent /> : <Icons.CalculateOutlined />;
 };
 
-export const ToolsOverview: React.FC<ToolsOverviewProps> = ({ categories, calculators }) => {
+export const ToolsOverview: React.FC<ToolsOverviewProps> = ({ calculators }) => {
   const navigate = useNavigate();
 
   return (
     <Grid container spacing={3}>
-      {categories.map((category) => (
-        <Grid item xs={12} sm={6} md={4} key={category.id}>
+      {calculators.map((calculator) => (
+        <Grid item xs={12} sm={6} md={4} key={calculator.id}>
           <Card>
-            <CardActionArea 
-              onClick={() => {
-                if (category.id === 'waste-knowledge') {
-                  navigate('/tools/waste-knowledge');
-                } else {
-                  // Handle other category navigations
-                  const categoryCalculators = calculators.filter(calc => calc.category?.id === category.id);
-                  if (categoryCalculators.length === 1) {
-                    navigate(categoryCalculators[0].path);
-                  }
-                }
-              }}
-            >
+            <CardActionArea onClick={() => navigate(calculator.path)}>
               <CardContent>
                 <Grid container spacing={2} alignItems="center">
                   <Grid item>
-                    <DynamicIcon iconName={category.icon} />
+                    <DynamicIcon iconName={calculator.icon} />
                   </Grid>
                   <Grid item xs>
                     <Typography variant="h6" component="h2">
-                      {category.title}
+                      {calculator.title}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {category.description}
+                      {calculator.description}
                     </Typography>
                   </Grid>
                 </Grid>

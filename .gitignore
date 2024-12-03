@@ -40,4 +40,28 @@ src/scripts/config/serviceAccountKey.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Vercel
 .vercel
+
+# Python
+/backend/venv/
+/backend/models/
+*.h5
+*.dylib
+__pycache__/
+*.pyc
+
+# ML related
+backend/models/
+backend/data/
+backend/ml/
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/test_images/
+
+# Large files
+*.model
+*.tar.gz
+*.zip

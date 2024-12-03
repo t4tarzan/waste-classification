@@ -29,7 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
 import type { WasteType, ClassificationResult, ModelResult } from '../../types/waste';
 import type { Analysis } from '../../types/analysis';
-import { auth, storage, uploadToStorage } from '../../config/firebase';
+import { auth, storage, uploadToStorage, ref, listAll } from '../../config/firebase';
 import { userService } from '../../services/userService';
 import { guestService } from '../../services/guestService';
 import { errorService, ErrorType } from '../../services/errorService';
@@ -92,58 +92,29 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('Environment Variables:');
-    console.log('TRASHNET_API_URL:', process.env.REACT_APP_TRASHNET_API_URL);
-    console.log('TACO_API_URL:', process.env.REACT_APP_TACO_API_URL);
-    console.log('WASTENET_API_URL:', process.env.REACT_APP_WASTENET_API_URL);
+    const checkAuth = () => {
+      setUser(auth.currentUser);
+      setIsInitializing(false);
+    };
+
+    const unsubscribe = auth.onAuthStateChanged(checkAuth);
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    const initializeStorage = async () => {
-      if (!user) {
-        setStorageAvailable(false);
-        setGuestRemainingAnalyses(guestService.getRemainingAnalyses());
-        return;
-      }
-
+    const checkStorage = async () => {
       try {
-        if (storage) {
-          if (mounted) {
-            setStorageAvailable(true);
-            setError(null);
-          }
-        }
+        // Check if we can access the root of the storage bucket
+        const rootRef = ref(storage, 'waste-images');
+        await listAll(rootRef);
+        setStorageAvailable(true);
       } catch (error) {
-        console.error('Storage initialization failed:', error);
-        if (mounted) {
-          setStorageAvailable(false);
-          setError('Storage service is temporarily unavailable. Please try again later.');
-        }
+        console.error('Storage not available:', error);
+        setStorageAvailable(false);
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (mounted) {
-        setUser(user);
-        if (user) {
-          initializeStorage().finally(() => {
-            if (mounted) {
-              setIsInitializing(false);
-            }
-          });
-        } else {
-          setIsInitializing(false);
-          setStorageAvailable(false);
-        }
-      }
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
+    checkStorage();
   }, []);
 
   const handleImageUpload = async (file: File) => {
@@ -173,8 +144,7 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
       await Promise.all([
         processTrashNetModel(base64Image, huggingFaceApiKey),
         processTacoModel(base64Image, huggingFaceApiKey),
-        // Temporarily commenting out to test if this model is causing the issue
-        // processWasteNetModel(base64Image, huggingFaceApiKey)
+        processWasteNetModel(base64Image, huggingFaceApiKey)
       ]);
 
       // Save analysis if callback provided
@@ -217,19 +187,17 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
   const processTrashNetModel = async (base64Image: string, apiKey: string): Promise<void> => {
     setLoadingStates(prev => ({ ...prev, trashnet: true }));
     try {
-      const huggingFaceApiUrl = process.env.REACT_APP_HUGGINGFACE_API_URL;
-      if (!huggingFaceApiUrl) {
-        throw new Error('Hugging Face API URL is not configured');
-      }
-
-      const response = await fetch(huggingFaceApiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ inputs: base64Image })
-      });
+      const response = await fetch(
+        'https://api-inference.huggingface.co/models/yangy50/garbage-classification',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ inputs: base64Image })
+        }
+      );
 
       await handleModelResponse(response, 'trashnet');
     } catch (error) {
@@ -243,7 +211,7 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
     setLoadingStates(prev => ({ ...prev, taco: true }));
     try {
       const response = await fetch(
-        'https://api-inference.huggingface.co/models/facebook/detr-resnet-50-panoptic',
+        'https://api-inference.huggingface.co/models/nateraw/vit-age-classifier',
         {
           method: 'POST',
           headers: {
@@ -266,7 +234,7 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
     setLoadingStates(prev => ({ ...prev, wastenet: true }));
     try {
       const response = await fetch(
-        'https://api-inference.huggingface.co/models/microsoft/beit-base-patch16-224-pt22k-ft22k',
+        'https://api-inference.huggingface.co/models/watersplash/waste-classification',
         {
           method: 'POST',
           headers: {
@@ -285,27 +253,74 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
     }
   };
 
-  const handleModelResponse = async (
-    response: Response,
-    modelType: keyof ModelResults
-  ): Promise<void> => {
+  const handleModelResponse = async (response: Response, modelType: keyof ModelResults): Promise<void> => {
     if (!response.ok) {
-      let errorMessage = 'Unknown error';
+      let errorMessage = `Failed to analyze image with ${modelType} model`;
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error || errorData.message || 'Unknown error';
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
       } catch {
-        errorMessage = response.statusText;
-      }
-
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+        // If parsing error response fails, use default message
       }
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    const transformedData = transformModelResponse(data, modelType);
+    let transformedData: ModelResult;
+
+    // Transform HuggingFace response format
+    if (Array.isArray(data) && data.length > 0) {
+      const prediction = data[0];
+      transformedData = {
+        category: prediction.label,
+        confidence: prediction.score,
+        metadata: {
+          material: prediction.label,
+          recyclable: isRecyclable(prediction.label),
+          subcategories: [prediction.label]
+        }
+      };
+    } else {
+      transformedData = {
+        category: 'unknown',
+        confidence: 0,
+        metadata: {
+          material: 'unknown',
+          recyclable: false,
+          subcategories: []
+        }
+      };
+    }
+
+    switch (modelType) {
+      case 'taco':
+        transformedData = {
+          category: getMostConfidentCategory(data),
+          confidence: getHighestConfidence(data),
+          metadata: {
+            material: getMostConfidentCategory(data),
+            recyclable: isRecyclable(getMostConfidentCategory(data)),
+            subcategories: getDetectedObjects(data)
+          }
+        };
+        break;
+      case 'wastenet':
+        transformedData = {
+          category: getMaterialCategory(data[0].label),
+          confidence: data[0].score,
+          metadata: {
+            material: data[0].label,
+            recyclable: isRecyclable(getMaterialCategory(data[0].label)),
+            subcategories: [data[0].label]
+          }
+        };
+        break;
+      default:
+        break;
+    }
+
     setModelResults(prev => ({
       ...prev,
       [modelType]: transformedData
@@ -318,31 +333,11 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
     errorService.handleError(error instanceof Error ? error : new Error(String(error)), ErrorType.ANALYSIS);
   };
 
-  const transformModelResponse = (data: any, modelType: keyof ModelResults): ModelResult => {
-    switch (modelType) {
-      case 'taco':
-        return {
-          category: getMostConfidentCategory(data),
-          confidence: getHighestConfidence(data),
-          metadata: {
-            material: getMostConfidentCategory(data),
-            recyclable: isRecyclable(getMostConfidentCategory(data)),
-            subcategories: getDetectedObjects(data)
-          }
-        };
-      case 'wastenet':
-        return {
-          category: getMaterialCategory(data[0].label),
-          confidence: data[0].score,
-          metadata: {
-            material: data[0].label,
-            recyclable: isRecyclable(getMaterialCategory(data[0].label)),
-            subcategories: [data[0].label]
-          }
-        };
-      default:
-        return data;
-    }
+  const isRecyclable = (category: string): boolean => {
+    const recyclableCategories = ['plastic', 'metal', 'paper', 'cardboard', 'glass'];
+    return recyclableCategories.some(recyclable => 
+      category.toLowerCase().includes(recyclable.toLowerCase())
+    );
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -441,11 +436,6 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
         </Table>
       </TableContainer>
     );
-  };
-
-  const isRecyclable = (category: string): boolean => {
-    const recyclableCategories = ['plastic', 'metal', 'glass', 'paper'];
-    return recyclableCategories.includes(category.toLowerCase());
   };
 
   const getMostConfidentCategory = (detectionData: any): string => {

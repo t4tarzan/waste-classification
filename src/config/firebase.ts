@@ -1,7 +1,7 @@
 import { initializeApp, FirebaseApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, getMetadata, listAll } from 'firebase/storage';
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -115,4 +115,4 @@ export const uploadToStorage = async (
 
 // Export initialized services
 export { app, auth, db, storage, googleProvider };
-export { ref, getDownloadURL, uploadBytes };
+export { ref, getDownloadURL, uploadBytes, listAll, getMetadata };

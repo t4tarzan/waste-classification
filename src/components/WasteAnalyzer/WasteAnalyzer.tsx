@@ -1,231 +1,613 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Grid,
-  Paper,
+  Button,
   Typography,
+  CircularProgress,
+  Paper,
+  Alert,
   IconButton,
   Card,
+  CardMedia,
   CardContent,
-  LinearProgress,
+  CardActions,
+  Divider,
+  Grid,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Chip,
+  LinearProgress
 } from '@mui/material';
-import { Upload, DeleteOutline } from '@mui/icons-material';
-import { WasteType, ClassificationResult } from '../../types';
+import { Upload, DeleteOutline, Login, Science, Category, Analytics } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { Timestamp } from 'firebase/firestore';
+import type { WasteType, ClassificationResult, ModelResult } from '../../types/waste';
+import type { Analysis } from '../../types/analysis';
+import { auth, storage, uploadToStorage } from '../../config/firebase';
+import { userService } from '../../services/userService';
+import { guestService } from '../../services/guestService';
+import { errorService, ErrorType } from '../../services/errorService';
 
-const wasteTypeColors: Record<WasteType, string> = {
-  dry: '#4caf50',
-  wet: '#2196f3',
-  plastic: '#ff9800',
-  hazardous: '#f44336',
-  unknown: '#757575',
+interface ModelResults {
+  trashnet?: ModelResult;
+  taco?: ModelResult;
+  wastenet?: ModelResult;
+}
+
+interface WasteAnalyzerProps {
+  onAnalysisComplete?: (result: ClassificationResult) => void;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+  'aria-labelledby'?: string;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`model-tabpanel-${index}`}
+      aria-labelledby={`model-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+const initialLoadingState = {
+  trashnet: false,
+  taco: false,
+  wastenet: false
 };
 
-export const WasteAnalyzer: React.FC = () => {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [results, setResults] = useState<ClassificationResult | null>(null);
+const initialModelResults: ModelResults = {
+  trashnet: undefined,
+  taco: undefined,
+  wastenet: undefined
+};
 
-  // Temporary mock classification for testing
-  const mockClassify = async (image: string) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return {
-      wasteType: 'plastic' as WasteType,
-      confidence: 0.85,
-      timestamp: new Date(),
-      imageUrl: image,
+const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [modelResults, setModelResults] = useState<ModelResults>(initialModelResults);
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [storageAvailable, setStorageAvailable] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [user, setUser] = useState(auth.currentUser);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [guestRemainingAnalyses, setGuestRemainingAnalyses] = useState<number | null>(null);
+  const [loadingStates, setLoadingStates] = useState(initialLoadingState);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log('Environment Variables:');
+    console.log('TRASHNET_API_URL:', process.env.REACT_APP_TRASHNET_API_URL);
+    console.log('TACO_API_URL:', process.env.REACT_APP_TACO_API_URL);
+    console.log('WASTENET_API_URL:', process.env.REACT_APP_WASTENET_API_URL);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeStorage = async () => {
+      if (!user) {
+        setStorageAvailable(false);
+        setGuestRemainingAnalyses(guestService.getRemainingAnalyses());
+        return;
+      }
+
+      try {
+        if (storage) {
+          if (mounted) {
+            setStorageAvailable(true);
+            setError(null);
+          }
+        }
+      } catch (error) {
+        console.error('Storage initialization failed:', error);
+        if (mounted) {
+          setStorageAvailable(false);
+          setError('Storage service is temporarily unavailable. Please try again later.');
+        }
+      }
     };
-  };
+
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (mounted) {
+        setUser(user);
+        if (user) {
+          initializeStorage().finally(() => {
+            if (mounted) {
+              setIsInitializing(false);
+            }
+          });
+        } else {
+          setIsInitializing(false);
+          setStorageAvailable(false);
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const handleImageUpload = async (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const imageData = e.target?.result as string;
-      setSelectedImage(imageData);
-      const result = await mockClassify(imageData);
-      setResults(result);
-    };
-    reader.readAsDataURL(file);
+    setError(null);
+    setLoadingStates(initialLoadingState);
+    setModelResults(initialModelResults);
+
+    try {
+      // Upload image to Firebase Storage
+      const fileName = `waste-images/${auth.currentUser?.uid || 'guest'}/${Date.now()}_${file.name}`;
+      const { downloadURL } = await uploadToStorage(fileName, file);
+      if (!downloadURL || typeof downloadURL !== 'string') {
+        throw new Error('Failed to upload image');
+      }
+      setSelectedImage(downloadURL);
+
+      // Validate Hugging Face API configuration
+      const huggingFaceApiKey = process.env.REACT_APP_HUGGINGFACE_API_KEY;
+      if (!huggingFaceApiKey) {
+        throw new Error('Hugging Face API key is not configured');
+      }
+
+      // Convert image to base64
+      const base64Image = await convertImageToBase64(file);
+
+      // Process with all models
+      await Promise.all([
+        processTrashNetModel(base64Image, huggingFaceApiKey),
+        processTacoModel(base64Image, huggingFaceApiKey),
+        processWasteNetModel(base64Image, huggingFaceApiKey)
+      ]);
+
+      // Save analysis if callback provided
+      if (onAnalysisComplete && modelResults) {
+        const result: ClassificationResult = {
+          imageUrl: downloadURL,
+          timestamp: Timestamp.now(),
+          wasteType: modelResults.trashnet?.category as WasteType || 'unknown',
+          confidence: modelResults.trashnet?.confidence || 0,
+          analysis: {
+            trashnet: modelResults.trashnet,
+            taco: modelResults.taco,
+            wastenet: modelResults.wastenet
+          }
+        };
+        onAnalysisComplete(result);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setError(errorMessage);
+      errorService.handleError(error instanceof Error ? error : new Error(String(error)), ErrorType.ANALYSIS);
+    }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const convertImageToBase64 = async (file: File): Promise<string> => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result.split(',')[1]);
+        } else {
+          reject(new Error('Failed to convert image to base64'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
 
+  const processTrashNetModel = async (base64Image: string, apiKey: string): Promise<void> => {
+    setLoadingStates(prev => ({ ...prev, trashnet: true }));
+    try {
+      const huggingFaceApiUrl = process.env.REACT_APP_HUGGINGFACE_API_URL;
+      if (!huggingFaceApiUrl) {
+        throw new Error('Hugging Face API URL is not configured');
+      }
+
+      const response = await fetch(huggingFaceApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ inputs: base64Image })
+      });
+
+      await handleModelResponse(response, 'trashnet');
+    } catch (error) {
+      handleModelError(error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, trashnet: false }));
+    }
+  };
+
+  const processTacoModel = async (base64Image: string, apiKey: string): Promise<void> => {
+    setLoadingStates(prev => ({ ...prev, taco: true }));
+    try {
+      const response = await fetch(
+        'https://api-inference.huggingface.co/models/facebook/detr-resnet-50-panoptic',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ inputs: base64Image })
+        }
+      );
+
+      await handleModelResponse(response, 'taco');
+    } catch (error) {
+      handleModelError(error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, taco: false }));
+    }
+  };
+
+  const processWasteNetModel = async (base64Image: string, apiKey: string): Promise<void> => {
+    setLoadingStates(prev => ({ ...prev, wastenet: true }));
+    try {
+      const response = await fetch(
+        'https://api-inference.huggingface.co/models/microsoft/beit-base-patch16-224-pt22k-ft22k',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ inputs: base64Image })
+        }
+      );
+
+      await handleModelResponse(response, 'wastenet');
+    } catch (error) {
+      handleModelError(error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, wastenet: false }));
+    }
+  };
+
+  const handleModelResponse = async (
+    response: Response,
+    modelType: keyof ModelResults
+  ): Promise<void> => {
+    if (!response.ok) {
+      let errorMessage = 'Unknown error';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || 'Unknown error';
+      } catch {
+        errorMessage = response.statusText;
+      }
+
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    const transformedData = transformModelResponse(data, modelType);
+    setModelResults(prev => ({
+      ...prev,
+      [modelType]: transformedData
+    }));
+  };
+
+  const handleModelError = (error: unknown): void => {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    setError(errorMessage);
+    errorService.handleError(error instanceof Error ? error : new Error(String(error)), ErrorType.ANALYSIS);
+  };
+
+  const transformModelResponse = (data: any, modelType: keyof ModelResults): ModelResult => {
+    switch (modelType) {
+      case 'taco':
+        return {
+          category: getMostConfidentCategory(data),
+          confidence: getHighestConfidence(data),
+          metadata: {
+            material: getMostConfidentCategory(data),
+            recyclable: isRecyclable(getMostConfidentCategory(data)),
+            subcategories: getDetectedObjects(data)
+          }
+        };
+      case 'wastenet':
+        return {
+          category: getMaterialCategory(data[0].label),
+          confidence: data[0].score,
+          metadata: {
+            material: data[0].label,
+            recyclable: isRecyclable(getMaterialCategory(data[0].label)),
+            subcategories: [data[0].label]
+          }
+        };
+      default:
+        return data;
+    }
+  };
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setSelectedTab(newValue);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+      const event = {
+        target: {
+          files: [file]
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
       handleImageUpload(file);
+    } else {
+      errorService.handleError('Please upload an image file', ErrorType.VALIDATION);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setIsDragging(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageUpload(file);
-    }
-  };
-
-  const clearImage = () => {
+  const handleDelete = () => {
     setSelectedImage(null);
-    setResults(null);
+    setModelResults(initialModelResults);
+    setError(null);
+  };
+
+  const handleLoginClick = () => {
+    navigate('/login');
+  };
+
+  if (isInitializing) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const renderModelResults = (result?: ModelResult) => {
+    if (!result) return null;
+
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Category</TableCell>
+              <TableCell>Confidence</TableCell>
+              <TableCell>Details</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>
+                <Chip label={result.category} color="primary" />
+              </TableCell>
+              <TableCell>
+                {(result.confidence * 100).toFixed(2)}%
+              </TableCell>
+              <TableCell>
+                {result.metadata?.material && (
+                  <Typography variant="body2" color="text.secondary">
+                    Material: {result.metadata.material}
+                    {result.metadata.recyclable !== undefined && (
+                      <span>
+                        {' '}
+                        ({result.metadata.recyclable ? 'Recyclable' : 'Non-recyclable'})
+                      </span>
+                    )}
+                  </Typography>
+                )}
+                {result.metadata?.subcategories && (
+                  <Typography variant="body2" color="text.secondary">
+                    Subcategories: {result.metadata.subcategories.join(', ')}
+                  </Typography>
+                )}
+                {result.predictions && (
+                  <Typography variant="body2" color="text.secondary">
+                    Top alternatives: {
+                      Object.entries(result.predictions)
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(1, 3)
+                        .map(([cat, conf]) => `${cat} (${(conf * 100).toFixed(1)}%)`)
+                        .join(', ')
+                    }
+                  </Typography>
+                )}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+
+  const isRecyclable = (category: string): boolean => {
+    const recyclableCategories = ['plastic', 'metal', 'glass', 'paper'];
+    return recyclableCategories.includes(category.toLowerCase());
+  };
+
+  const getMostConfidentCategory = (detectionData: any): string => {
+    if (!detectionData || !Array.isArray(detectionData)) return 'unknown';
+    const sortedObjects = detectionData
+      .sort((a: any, b: any) => b.score - a.score);
+    return sortedObjects[0]?.label?.toLowerCase() || 'unknown';
+  };
+
+  const getHighestConfidence = (detectionData: any): number => {
+    if (!detectionData || !Array.isArray(detectionData)) return 0;
+    const sortedObjects = detectionData
+      .sort((a: any, b: any) => b.score - a.score);
+    return sortedObjects[0]?.score || 0;
+  };
+
+  const getDetectedObjects = (detectionData: any): string[] => {
+    if (!detectionData || !Array.isArray(detectionData)) return [];
+    return detectionData
+      .filter((obj: any) => obj.score > 0.5)
+      .map((obj: any) => obj.label.toLowerCase());
+  };
+
+  const getMaterialCategory = (label: string): string => {
+    const materialMap: { [key: string]: string } = {
+      'plastic': 'plastic',
+      'metal': 'metal',
+      'glass': 'glass',
+      'paper': 'paper',
+      'cardboard': 'paper',
+      'organic': 'organic',
+      'food': 'organic',
+      'wood': 'organic'
+    };
+
+    const lowerLabel = label.toLowerCase();
+    for (const [key, value] of Object.entries(materialMap)) {
+      if (lowerLabel.includes(key)) {
+        return value;
+      }
+    }
+    return 'other';
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Paper
-            id="upload-section"
-            sx={{
-              p: 3,
-              height: 400,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: isDragging ? '2px dashed #2196f3' : '2px dashed #ccc',
-              bgcolor: isDragging ? 'rgba(33, 150, 243, 0.1)' : 'background.paper',
-              cursor: 'pointer',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
+    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', p: 2 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {!user && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Guest mode: {guestRemainingAnalyses} analyses remaining today. <Button color="inherit" onClick={handleLoginClick}>Sign in</Button> for unlimited analyses.
+        </Alert>
+      )}
+
+      <Paper
+        sx={{
+          border: '2px dashed #ccc',
+          borderRadius: 2,
+          p: 3,
+          textAlign: 'center',
+          mb: 2,
+          cursor: 'pointer',
+        }}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e.target.files![0])}
+          style={{ display: 'none' }}
+          id="image-upload"
+        />
+        <label htmlFor="image-upload">
+          <Button
+            component="span"
+            variant="contained"
+            startIcon={<Upload />}
+            disabled={isLoading}
           >
-            {selectedImage ? (
-              <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
-                <img
-                  src={selectedImage}
-                  alt="Uploaded waste"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                  }}
-                />
-                <IconButton
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'rgba(0, 0, 0, 0.5)',
-                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.7)' },
-                  }}
-                  onClick={clearImage}
-                >
-                  <DeleteOutline sx={{ color: 'white' }} />
-                </IconButton>
-              </Box>
-            ) : (
-              <>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileInput}
-                  style={{ display: 'none' }}
-                  id="image-upload"
-                />
-                <label htmlFor="image-upload">
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Upload sx={{ fontSize: 60, color: 'text.secondary' }} />
-                    <Typography variant="h6" color="text.secondary">
-                      Drag & Drop or Click to Upload
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Supports: JPG, PNG, JPEG
-                    </Typography>
-                  </Box>
-                </label>
-              </>
-            )}
-          </Paper>
-        </Grid>
+            {isLoading ? 'Uploading...' : 'Upload Image'}
+          </Button>
+        </label>
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          or drag and drop an image here
+        </Typography>
+      </Paper>
 
-        <Grid item xs={12} md={6}>
-          {results ? (
+      {isLoading && (
+        <Box sx={{ width: '100%', mt: 2 }}>
+          <LinearProgress />
+        </Box>
+      )}
+
+      {selectedImage && !isLoading && (
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid item xs={12} md={6}>
             <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Classification Results
-                </Typography>
-
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Waste Type
-                  </Typography>
-                  <Chip
-                    label={results.wasteType.toUpperCase()}
-                    sx={{
-                      bgcolor: wasteTypeColors[results.wasteType],
-                      color: 'white',
-                      fontSize: '1rem',
-                      py: 1,
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Confidence Level
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={results.confidence * 100}
-                      sx={{
-                        height: 10,
-                        borderRadius: 5,
-                        flexGrow: 1,
-                        bgcolor: 'grey.200',
-                        '& .MuiLinearProgress-bar': {
-                          bgcolor: wasteTypeColors[results.wasteType],
-                        },
-                      }}
-                    />
-                    <Typography variant="body1">
-                      {(results.confidence * 100).toFixed(1)}%
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Typography variant="subtitle1" gutterBottom>
-                  Timestamp
-                </Typography>
-                <Typography variant="body1">
-                  {results.timestamp.toLocaleString()}
-                </Typography>
-              </CardContent>
+              <CardMedia
+                component="img"
+                image={selectedImage}
+                alt="Selected waste image"
+                sx={{ height: 400, objectFit: 'contain' }}
+              />
+              <Divider />
+              <CardActions>
+                <IconButton onClick={handleDelete} color="error">
+                  <DeleteOutline />
+                </IconButton>
+              </CardActions>
             </Card>
-          ) : (
-            <Paper
-              sx={{
-                p: 3,
-                height: 400,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'grey.100',
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" align="center">
-                Upload an image to see classification results
-              </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Paper>
+              <Tabs
+                value={selectedTab}
+                onChange={handleTabChange}
+                variant="fullWidth"
+                sx={{ borderBottom: 1, borderColor: 'divider' }}
+              >
+                <Tab icon={<Science />} label="TrashNet" />
+                <Tab icon={<Category />} label="TACO" />
+                <Tab icon={<Analytics />} label="WasteNet" />
+              </Tabs>
+              <TabPanel value={selectedTab} index={0}>
+                {loadingStates.trashnet ? (
+                  <Box display="flex" justifyContent="center" p={3}>
+                    <CircularProgress />
+                  </Box>
+                ) : modelResults.trashnet ? (
+                  renderModelResults(modelResults.trashnet)
+                ) : null}
+              </TabPanel>
+
+              <TabPanel value={selectedTab} index={1}>
+                {loadingStates.taco ? (
+                  <Box display="flex" justifyContent="center" p={3}>
+                    <CircularProgress />
+                  </Box>
+                ) : modelResults.taco ? (
+                  renderModelResults(modelResults.taco)
+                ) : null}
+              </TabPanel>
+
+              <TabPanel value={selectedTab} index={2}>
+                {loadingStates.wastenet ? (
+                  <Box display="flex" justifyContent="center" p={3}>
+                    <CircularProgress />
+                  </Box>
+                ) : modelResults.wastenet ? (
+                  renderModelResults(modelResults.wastenet)
+                ) : null}
+              </TabPanel>
             </Paper>
-          )}
+          </Grid>
         </Grid>
-      </Grid>
+      )}
     </Box>
   );
 };
+
+export default WasteAnalyzer;

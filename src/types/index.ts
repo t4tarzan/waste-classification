@@ -1,14 +1,21 @@
-export type WasteType = 'dry' | 'wet' | 'plastic' | 'hazardous' | 'unknown';
+// Re-export all types
+export * from './analysis';
+export * from './waste';
+export * from './settings';
+export type { UserProfile, UserSettings, UserStatistics } from './user';
 
-export interface ClassificationResult {
-  wasteType: WasteType;
-  confidence: number;
-  timestamp: Date;
+// Additional utility types
+export interface AnalysisResult {
+  id: string;
   imageUrl: string;
-}
-
-export interface CameraConfig {
-  width: number;
-  height: number;
-  facingMode: 'user' | 'environment';
+  result: {
+    wasteType: 'plastic' | 'metal' | 'glass' | 'paper' | 'organic' | 'unknown';
+    confidence: number;
+    timestamp: Date;
+    metadata?: {
+      material?: string;
+      recyclable?: boolean;
+      recommendations?: string[];
+    };
+  };
 }

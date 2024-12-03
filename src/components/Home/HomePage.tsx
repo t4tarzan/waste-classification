@@ -7,7 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardMedia,
   Stack,
   Paper,
 } from '@mui/material';
@@ -19,15 +18,30 @@ import {
   Article,
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { WasteAnalyzer } from '../WasteAnalyzer/WasteAnalyzer';
+import heroBg from '../../assets/images/hero-bg.jpg';
 
 const HeroSection = styled(Box)(({ theme }) => ({
-  background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?ixlib=rb-4.0.3')`,
+  backgroundImage: `url(${heroBg})`,
   backgroundSize: 'cover',
   backgroundPosition: 'center',
   color: 'white',
   padding: theme.spacing(15, 0),
   textAlign: 'center',
+  position: 'relative',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
+  },
+  '& > *': {
+    position: 'relative',
+    zIndex: 2,
+  },
 }));
 
 const StatsCard = styled(Paper)(({ theme }) => ({
@@ -76,24 +90,43 @@ export const HomePage: React.FC = () => {
           <Typography variant="h5" gutterBottom sx={{ mb: 4 }}>
             Revolutionizing waste management with AI technology
           </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            component="a"
-            href="#waste-analyzer"
-            sx={{ mr: 2 }}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            justifyContent="center"
           >
-            Try Waste Analyzer
-          </Button>
-          <Button
-            variant="outlined"
-            size="large"
-            component={Link}
-            to="/waste-management"
-            sx={{ color: 'white', borderColor: 'white' }}
-          >
-            Learn More
-          </Button>
+            <Button
+              variant="contained"
+              size="large"
+              component={Link}
+              to="/waste-analyzer"
+              sx={{ 
+                bgcolor: 'white',
+                color: 'primary.main',
+                '&:hover': {
+                  bgcolor: 'grey.100',
+                }
+              }}
+            >
+              Try Waste Analyzer
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              component={Link}
+              to="/waste-management"
+              sx={{ 
+                color: 'white',
+                borderColor: 'white',
+                '&:hover': {
+                  borderColor: 'grey.100',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                }
+              }}
+            >
+              Learn More
+            </Button>
+          </Stack>
         </Container>
       </HeroSection>
 
@@ -165,15 +198,25 @@ export const HomePage: React.FC = () => {
         </Container>
       </Box>
 
-      <Container sx={{ my: 8 }} id="waste-analyzer">
-        <Typography variant="h3" component="h2" textAlign="center" gutterBottom>
-          Try Our Waste Analyzer
-        </Typography>
-        <Typography variant="body1" textAlign="center" sx={{ mb: 4 }}>
-          Upload an image of any waste item to get instant AI-powered classification
-        </Typography>
-        <WasteAnalyzer />
-      </Container>
+      <Box sx={{ my: 8, textAlign: 'center' }}>
+        <Container>
+          <Typography variant="h3" component="h2" gutterBottom>
+            Ready to Start?
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 4 }}>
+            Try our AI-powered waste classification tool now
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            component={Link}
+            to="/waste-analyzer"
+            startIcon={<Analytics />}
+          >
+            Go to Waste Analyzer
+          </Button>
+        </Container>
+      </Box>
     </Box>
   );
 };

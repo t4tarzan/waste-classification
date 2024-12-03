@@ -15,10 +15,11 @@ import {
 } from '@mui/material';
 import { Menu as MenuIcon, RecyclingOutlined } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
+import { UserMenu } from '../Auth/UserMenu';
 
 const menuItems = [
   { text: 'Home', path: '/', isHash: false },
-  { text: 'Waste Analyzer', path: '/#waste-analyzer', isHash: true },
+  { text: 'Waste Analyzer', path: '/waste-analyzer', isHash: false },
   { text: 'Waste Management', path: '/waste-management', isHash: false },
   { text: 'Tools', path: '/tools', isHash: false },
   { text: 'Blog', path: '/blog', isHash: false },
@@ -33,28 +34,15 @@ export const Navbar = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const handleNavClick = (path: string, isHash: boolean) => {
-    if (isHash) {
-      // If we're already on the home page, just scroll to the section
-      if (window.location.pathname === '/') {
-        const element = document.getElementById('waste-analyzer');
-        element?.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        // If we're on a different page, navigate to home and then scroll
-        window.location.href = path;
-      }
-    }
-  };
-
   const drawer = (
     <List>
       {menuItems.map((item) => (
         <ListItem
           button
           key={item.text}
-          component={item.isHash ? 'button' : Link}
-          to={item.isHash ? undefined : item.path}
-          onClick={() => item.isHash && handleNavClick(item.path, item.isHash)}
+          component={Link}
+          to={item.path}
+          onClick={() => setMobileOpen(false)}
           sx={{ color: theme.palette.text.primary }}
         >
           <ListItemText primary={item.text} />
@@ -94,25 +82,19 @@ export const Navbar = () => {
 
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
             {menuItems.map((item) => (
-              item.isHash ? (
-                <Button
-                  key={item.text}
-                  onClick={() => handleNavClick(item.path, item.isHash)}
-                  sx={{ color: 'text.primary', ml: 2 }}
-                >
-                  {item.text}
-                </Button>
-              ) : (
-                <Button
-                  key={item.text}
-                  component={Link}
-                  to={item.path}
-                  sx={{ color: 'text.primary', ml: 2 }}
-                >
-                  {item.text}
-                </Button>
-              )
+              <Button
+                key={item.text}
+                component={Link}
+                to={item.path}
+                color="inherit"
+                sx={{ color: 'text.primary' }}
+              >
+                {item.text}
+              </Button>
             ))}
+          </Box>
+          <Box sx={{ ml: 2 }}>
+            <UserMenu />
           </Box>
         </Toolbar>
       </AppBar>

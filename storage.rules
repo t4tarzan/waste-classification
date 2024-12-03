@@ -7,8 +7,8 @@ service firebase.storage {
       allow read: if true;
     }
 
-    // Allow guest uploads to the guest-uploads directory
-    match /guest-uploads/{fileName} {
+    // Allow guest uploads to the waste-images/guest directory
+    match /waste-images/guest/{fileName} {
       allow write: if request.resource.contentType.matches('image/.*')
                   && request.resource.size <= 5 * 1024 * 1024;
     }

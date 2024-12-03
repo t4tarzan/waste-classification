@@ -173,7 +173,8 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
       await Promise.all([
         processTrashNetModel(base64Image, huggingFaceApiKey),
         processTacoModel(base64Image, huggingFaceApiKey),
-        processWasteNetModel(base64Image, huggingFaceApiKey)
+        // Temporarily commenting out to test if this model is causing the issue
+        // processWasteNetModel(base64Image, huggingFaceApiKey)
       ]);
 
       // Save analysis if callback provided

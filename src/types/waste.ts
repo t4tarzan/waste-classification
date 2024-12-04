@@ -11,6 +11,7 @@ export interface ModelResult {
     material?: string;
     recyclable?: boolean;
     subcategories?: string[];
+    error?: string;
   };
   predictions?: Record<string, number>;
 }

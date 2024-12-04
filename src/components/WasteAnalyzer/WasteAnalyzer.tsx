@@ -81,7 +81,7 @@ const initialModelResults: ModelResults = {
 const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [modelResults, setModelResults] = useState<ModelResults>(initialModelResults);
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(0); 
   const [storageAvailable, setStorageAvailable] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [user, setUser] = useState(auth.currentUser);
@@ -140,27 +140,90 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
       // Convert image to base64
       const base64Image = await convertImageToBase64(file);
 
-      // Process with all models
-      await Promise.all([
-        processTrashNetModel(base64Image, huggingFaceApiKey),
-        processTacoModel(base64Image, huggingFaceApiKey),
-        processWasteNetModel(base64Image, huggingFaceApiKey)
-      ]);
+      // Process each model independently
+      const processModels = async () => {
+        // Process WasteNet first (primary model)
+        try {
+          await processWasteNetModel(base64Image, huggingFaceApiKey);
+        } catch (error) {
+          console.error('WasteNet model error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          setModelResults(prev => ({
+            ...prev,
+            wastenet: {
+              category: 'error',
+              confidence: 0,
+              metadata: {
+                material: 'unknown',
+                recyclable: false,
+                subcategories: [],
+                error: errorMessage
+              }
+            }
+          }));
+        }
 
-      // Save analysis if callback provided
+        // Process other models in parallel
+        Promise.allSettled([
+          processTrashNetModel(base64Image, huggingFaceApiKey).catch(error => {
+            console.error('TrashNet model error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setModelResults(prev => ({
+              ...prev,
+              trashnet: {
+                category: 'error',
+                confidence: 0,
+                metadata: {
+                  material: 'unknown',
+                  recyclable: false,
+                  subcategories: [],
+                  error: errorMessage
+                }
+              }
+            }));
+          }),
+          processTacoModel(base64Image, huggingFaceApiKey).catch(error => {
+            console.error('TACO model error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setModelResults(prev => ({
+              ...prev,
+              taco: {
+                category: 'error',
+                confidence: 0,
+                metadata: {
+                  material: 'unknown',
+                  recyclable: false,
+                  subcategories: [],
+                  error: errorMessage
+                }
+              }
+            }));
+          })
+        ]);
+      };
+
+      await processModels();
+
+      // Save analysis if callback provided and at least one model succeeded
       if (onAnalysisComplete && modelResults) {
-        const result: ClassificationResult = {
-          imageUrl: downloadURL,
-          timestamp: Timestamp.now(),
-          wasteType: modelResults.trashnet?.category as WasteType || 'unknown',
-          confidence: modelResults.trashnet?.confidence || 0,
-          analysis: {
-            trashnet: modelResults.trashnet,
-            taco: modelResults.taco,
-            wastenet: modelResults.wastenet
-          }
-        };
-        onAnalysisComplete(result);
+        const successfulModel = modelResults.trashnet?.category !== 'error' ? modelResults.trashnet :
+                              modelResults.taco?.category !== 'error' ? modelResults.taco :
+                              modelResults.wastenet?.category !== 'error' ? modelResults.wastenet : null;
+
+        if (successfulModel) {
+          const result: ClassificationResult = {
+            imageUrl: downloadURL,
+            timestamp: Timestamp.now(),
+            wasteType: successfulModel.category as WasteType,
+            confidence: successfulModel.confidence,
+            analysis: {
+              trashnet: modelResults.trashnet,
+              taco: modelResults.taco,
+              wastenet: modelResults.wastenet
+            }
+          };
+          onAnalysisComplete(result);
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -384,6 +447,34 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
   const renderModelResults = (result?: ModelResult) => {
     if (!result) return null;
 
+    // If the model encountered an error
+    if (result.category === 'error') {
+      return (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Status</TableCell>
+                <TableCell>Message</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  <Chip label="Error" color="error" />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="error">
+                    {result.metadata?.error || 'Model analysis failed'}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      );
+    }
+
     return (
       <TableContainer component={Paper}>
         <Table>
@@ -560,11 +651,21 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
                 variant="fullWidth"
                 sx={{ borderBottom: 1, borderColor: 'divider' }}
               >
+                <Tab icon={<Analytics />} label="WasteNet" />
                 <Tab icon={<Science />} label="TrashNet" />
                 <Tab icon={<Category />} label="TACO" />
-                <Tab icon={<Analytics />} label="WasteNet" />
               </Tabs>
               <TabPanel value={selectedTab} index={0}>
+                {loadingStates.wastenet ? (
+                  <Box display="flex" justifyContent="center" p={3}>
+                    <CircularProgress />
+                  </Box>
+                ) : modelResults.wastenet ? (
+                  renderModelResults(modelResults.wastenet)
+                ) : null}
+              </TabPanel>
+
+              <TabPanel value={selectedTab} index={1}>
                 {loadingStates.trashnet ? (
                   <Box display="flex" justifyContent="center" p={3}>
                     <CircularProgress />
@@ -574,23 +675,13 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
                 ) : null}
               </TabPanel>
 
-              <TabPanel value={selectedTab} index={1}>
+              <TabPanel value={selectedTab} index={2}>
                 {loadingStates.taco ? (
                   <Box display="flex" justifyContent="center" p={3}>
                     <CircularProgress />
                   </Box>
                 ) : modelResults.taco ? (
                   renderModelResults(modelResults.taco)
-                ) : null}
-              </TabPanel>
-
-              <TabPanel value={selectedTab} index={2}>
-                {loadingStates.wastenet ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : modelResults.wastenet ? (
-                  renderModelResults(modelResults.wastenet)
                 ) : null}
               </TabPanel>
             </Paper>

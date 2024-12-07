@@ -10,6 +10,7 @@
     "@firebase/firestore": "^4.7.5",
     "@mui/icons-material": "^5.16.7",
     "@mui/material": "^5.15.6",
+    "@mui/x-charts": "^7.23.1",
     "axios": "^1.6.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",

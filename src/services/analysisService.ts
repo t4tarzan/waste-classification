@@ -68,18 +68,38 @@ export const analysisService = {
 
     const defaultStats: AnalysisStats = {
       totalAnalyses: 0,
+      wasteTypes: {
+        plastic: 0,
+        metal: 0,
+        glass: 0,
+        paper: 0,
+        organic: 0,
+        unknown: 0,
+        'non-recyclable': 0,
+        'hazardous': 0
+      },
       wasteTypeCounts: {
         plastic: 0,
         metal: 0,
         glass: 0,
         paper: 0,
         organic: 0,
-        unknown: 0
+        unknown: 0,
+        'non-recyclable': 0,
+        'hazardous': 0
       },
-      lastAnalysisDate: Timestamp.now(),
       averageConfidence: 0,
       totalStorageUsed: 0,
-      recommendationCount: 0
+      analysisHistory: {
+        daily: [],
+        weekly: [],
+        monthly: []
+      },
+      environmentalImpact: {
+        co2Saved: 0,
+        treesEquivalent: 0,
+        waterSaved: 0
+      }
     };
 
     if (!statsDoc.exists()) {
@@ -119,18 +139,38 @@ export const analysisService = {
     const statsRef = doc(db, 'users', userId, 'statistics', 'analysis');
     const initialStats: AnalysisStats = {
       totalAnalyses: 0,
+      wasteTypes: {
+        plastic: 0,
+        metal: 0,
+        glass: 0,
+        paper: 0,
+        organic: 0,
+        unknown: 0,
+        'non-recyclable': 0,
+        'hazardous': 0
+      },
       wasteTypeCounts: {
         plastic: 0,
         metal: 0,
         glass: 0,
         paper: 0,
         organic: 0,
-        unknown: 0
+        unknown: 0,
+        'non-recyclable': 0,
+        'hazardous': 0
       },
-      lastAnalysisDate: Timestamp.now(),
       averageConfidence: 0,
       totalStorageUsed: 0,
-      recommendationCount: 0
+      analysisHistory: {
+        daily: [],
+        weekly: [],
+        monthly: []
+      },
+      environmentalImpact: {
+        co2Saved: 0,
+        treesEquivalent: 0,
+        waterSaved: 0
+      }
     };
     await setDoc(statsRef, initialStats);
   }

@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type WasteType = 'plastic' | 'metal' | 'glass' | 'paper' | 'organic' | 'unknown';
+export type WasteType = 'plastic' | 'metal' | 'glass' | 'paper' | 'organic' | 'unknown' | 'non-recyclable' | 'hazardous';
 
 export type ModelType = 'trashnet' | 'taco' | 'wastenet';
 

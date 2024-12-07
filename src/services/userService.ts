@@ -26,7 +26,9 @@ const defaultUserStatistics: UserStatistics = {
     glass: 0,
     paper: 0,
     organic: 0,
-    unknown: 0
+    unknown: 0,
+    'non-recyclable': 0,
+    'hazardous': 0
   },
   averageConfidence: 0,
   totalStorageUsed: 0,

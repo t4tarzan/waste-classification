@@ -1,3 +1,36 @@
+/**
+ * @gold
+ * Analysis History Component
+ * 
+ * This is a GOLD standard component that displays a user's analysis history
+ * in a clean, interactive table format with image previews and actions.
+ * 
+ * GOLD Features:
+ * 1. Data Display:
+ *    - Sortable by date (newest first)
+ *    - Image previews with zoom capability
+ *    - Waste type classification chips
+ *    - Confidence score indicators
+ *    - Material type information
+ * 
+ * 2. User Actions:
+ *    - Delete individual analyses
+ *    - View full-size images
+ *    - Paginate through history
+ * 
+ * 3. Performance:
+ *    - Efficient data loading
+ *    - Proper cleanup on unmount
+ *    - Optimized image loading
+ * 
+ * Extension Points:
+ * 1. Search: Add search functionality for specific analyses
+ * 2. Export: Add ability to export history as CSV/PDF
+ * 3. Sorting: Add column-based sorting options
+ * 
+ * @param {string} userId - The ID of the user whose history to display
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,

@@ -33,6 +33,7 @@ import { auth, storage, uploadToStorage, ref, listAll } from '../../config/fireb
 import { userService } from '../../services/userService';
 import { guestService } from '../../services/guestService';
 import { errorService, ErrorType } from '../../services/errorService';
+import { WasteDistributionChart } from '../Charts/WasteDistributionChart';
 
 interface ModelResults {
   trashnet?: ModelResult;
@@ -81,7 +82,7 @@ const initialModelResults: ModelResults = {
 const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [modelResults, setModelResults] = useState<ModelResults>(initialModelResults);
-  const [selectedTab, setSelectedTab] = useState(0); 
+  const [selectedTab, setSelectedTab] = useState(-1); 
   const [storageAvailable, setStorageAvailable] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [user, setUser] = useState(auth.currentUser);
@@ -89,6 +90,11 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [guestRemainingAnalyses, setGuestRemainingAnalyses] = useState<number | null>(null);
   const [loadingStates, setLoadingStates] = useState(initialLoadingState);
+  const [activeModels, setActiveModels] = useState<Record<keyof ModelResults, boolean>>({
+    wastenet: false,
+    trashnet: false,
+    taco: false
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -116,6 +122,24 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
 
     checkStorage();
   }, []);
+
+  useEffect(() => {
+    const newActiveModels = {
+      wastenet: Boolean(modelResults.wastenet && modelResults.wastenet.category !== 'error'),
+      trashnet: Boolean(modelResults.trashnet && modelResults.trashnet.category !== 'error'),
+      taco: Boolean(modelResults.taco && modelResults.taco.category !== 'error')
+    };
+    setActiveModels(newActiveModels);
+
+    // Auto-select first working model
+    if (selectedTab === -1) {
+      const firstWorkingModel = Object.entries(newActiveModels)
+        .find(([_, isActive]) => isActive);
+      if (firstWorkingModel) {
+        setSelectedTab(['wastenet', 'trashnet', 'taco'].indexOf(firstWorkingModel[0]));
+      }
+    }
+  }, [modelResults]);
 
   const handleImageUpload = async (file: File) => {
     setError(null);
@@ -625,68 +649,84 @@ const WasteAnalyzer: React.FC<WasteAnalyzerProps> = ({ onAnalysisComplete }) => 
         </Box>
       )}
 
-      {selectedImage && !isLoading && (
-        <Grid container spacing={2} sx={{ mt: 2 }}>
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardMedia
-                component="img"
-                image={selectedImage}
-                alt="Selected waste image"
-                sx={{ height: 400, objectFit: 'contain' }}
-              />
-              <Divider />
-              <CardActions>
-                <IconButton onClick={handleDelete} color="error">
-                  <DeleteOutline />
-                </IconButton>
-              </CardActions>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper>
-              <Tabs
-                value={selectedTab}
-                onChange={handleTabChange}
-                variant="fullWidth"
-                sx={{ borderBottom: 1, borderColor: 'divider' }}
-              >
-                <Tab icon={<Analytics />} label="WasteNet" />
-                <Tab icon={<Science />} label="TrashNet" />
-                <Tab icon={<Category />} label="TACO" />
-              </Tabs>
+      {selectedImage && (
+        <>
+          <Grid container spacing={2} sx={{ mt: 2, mb: 2 }}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardMedia
+                  component="img"
+                  image={selectedImage}
+                  alt="Selected waste image"
+                  sx={{ height: 400, objectFit: 'contain' }}
+                />
+                <Divider />
+                <CardActions>
+                  <IconButton onClick={handleDelete} color="error">
+                    <DeleteOutline />
+                  </IconButton>
+                </CardActions>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                <Tabs
+                  value={selectedTab}
+                  onChange={(_, newValue) => setSelectedTab(newValue)}
+                  aria-label="model results tabs"
+                  variant="fullWidth"
+                >
+                  <Tab
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Analytics sx={{ mr: 1 }} />
+                        WasteNet
+                        {loadingStates.wastenet && <CircularProgress size={16} sx={{ ml: 1 }} />}
+                      </Box>
+                    }
+                    disabled={!activeModels.wastenet}
+                  />
+                  <Tab
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Science sx={{ mr: 1 }} />
+                        TrashNet
+                        {loadingStates.trashnet && <CircularProgress size={16} sx={{ ml: 1 }} />}
+                      </Box>
+                    }
+                    disabled={!activeModels.trashnet}
+                  />
+                  <Tab
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Category sx={{ mr: 1 }} />
+                        TACO
+                        {loadingStates.taco && <CircularProgress size={16} sx={{ ml: 1 }} />}
+                      </Box>
+                    }
+                    disabled={!activeModels.taco}
+                  />
+                </Tabs>
+              </Box>
+
               <TabPanel value={selectedTab} index={0}>
-                {loadingStates.wastenet ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : modelResults.wastenet ? (
+                {modelResults.wastenet && (
                   renderModelResults(modelResults.wastenet)
-                ) : null}
+                )}
               </TabPanel>
-
               <TabPanel value={selectedTab} index={1}>
-                {loadingStates.trashnet ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : modelResults.trashnet ? (
+                {modelResults.trashnet && (
                   renderModelResults(modelResults.trashnet)
-                ) : null}
+                )}
               </TabPanel>
-
               <TabPanel value={selectedTab} index={2}>
-                {loadingStates.taco ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : modelResults.taco ? (
+                {modelResults.taco && (
                   renderModelResults(modelResults.taco)
-                ) : null}
+                )}
               </TabPanel>
-            </Paper>
+            </Grid>
           </Grid>
-        </Grid>
+        </>
       )}
     </Box>
   );

@@ -15,7 +15,8 @@ import { ProfilePage } from './components/User/ProfilePage';
 import { Dashboard } from './components/User/Dashboard';
 import StorageTestComponent from './components/StorageTest/StorageTestComponent';
 import { AuthProvider } from './contexts/AuthContext';
-import AnalysisPage from './components/Analysis/AnalysisPage';
+import { ProtectedRoute } from './components/Auth/ProtectedRoute';
+import AnalysisPage from './pages/Analysis';
 import { ToastContainer } from 'react-toastify';
 
 const theme = createTheme({
@@ -87,10 +88,31 @@ function App() {
               <Route path="/tools/*" element={<ToolsPage />} />
               <Route path="/waste-analyzer" element={<WasteAnalyzer />} />
               <Route path="/waste-management/*" element={<WasteManagementPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
               <Route path="/storage-test" element={<StorageTestComponent />} />
-              <Route path="/analysis" element={<AnalysisPage />} />
+              <Route 
+                path="/analysis" 
+                element={
+                  <ProtectedRoute>
+                    <AnalysisPage />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </Box>
           <Footer />

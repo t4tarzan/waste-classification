@@ -24,18 +24,20 @@ export interface Analysis {
 
 export interface AnalysisStats {
   totalAnalyses: number;
-  wasteTypeCounts: {
-    plastic: number;
-    metal: number;
-    glass: number;
-    paper: number;
-    organic: number;
-    unknown: number;
-  };
-  lastAnalysisDate: Timestamp;
+  wasteTypes: Record<WasteType, number>;
+  wasteTypeCounts: Record<WasteType, number>;
   averageConfidence: number;
   totalStorageUsed: number;
-  recommendationCount: number;
+  analysisHistory: {
+    daily: Array<{ date: string; count: number }>;
+    weekly: Array<{ date: string; count: number }>;
+    monthly: Array<{ date: string; count: number }>;
+  };
+  environmentalImpact: {
+    co2Saved: number;
+    treesEquivalent: number;
+    waterSaved: number;
+  };
 }
 
 export interface AnalysisPreferences {

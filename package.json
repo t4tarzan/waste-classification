@@ -8,6 +8,7 @@
     "@emotion/styled": "^11.11.0",
     "@firebase/auth": "^1.8.1",
     "@firebase/firestore": "^4.7.5",
+    "@huggingface/inference": "^2.6.4",
     "@mui/icons-material": "^5.16.7",
     "@mui/material": "^5.15.6",
     "@mui/x-charts": "^7.23.1",
@@ -28,6 +29,7 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
+    "@testing-library/react-hooks": "^8.0.1",
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
     "@types/node": "^22.10.0",
@@ -37,12 +39,14 @@
     "@types/recharts": "^1.8.29",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
+    "canvas": "^2.11.2",
     "eslint": "^8.56.0",
     "eslint-config-react-app": "^7.0.1",
     "eslint-plugin-react": "^7.33.2",
     "firebase-admin": "^13.0.1",
     "firebase-tools": "^13.27.0",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "whatwg-fetch": "^3.6.20"
   },
   "scripts": {
     "start": "PORT=3001 react-scripts start",

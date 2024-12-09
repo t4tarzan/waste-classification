@@ -16,6 +16,16 @@ export interface ModelResult {
   predictions?: Record<string, number>;
 }
 
+export interface Prediction {
+  category: string;
+  confidence: number;
+  metadata?: {
+    material?: string;
+    recyclable?: boolean;
+    subcategories?: string[];
+  };
+}
+
 export interface ClassificationResult {
   imageUrl: string;
   timestamp: Timestamp;
@@ -30,5 +40,23 @@ export interface ClassificationResult {
   };
   analysis?: {
     [key in ModelType]?: ModelResult;
+  };
+}
+
+export interface WasteStats {
+  wasteTypeCounts: Record<string, number>;
+  wasteTypes: Record<string, number>;  // For backward compatibility
+  totalAnalyses: number;
+  averageConfidence: number;
+  totalStorageUsed: number;
+  analysisHistory: {
+    daily: { date: string; count: number }[];
+    weekly: { date: string; count: number }[];
+    monthly: { date: string; count: number }[];
+  };
+  environmentalImpact: {
+    co2Saved: number;
+    waterSaved: number;
+    energySaved: number;
   };
 }

@@ -18,6 +18,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import AnalysisPage from './pages/Analysis';
 import { ToastContainer } from 'react-toastify';
+import VideoTest from './features/HF/video/components/VideoTest';
 
 const theme = createTheme({
   palette: {
@@ -113,6 +114,7 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route path="/video-test" element={<VideoTest />} />
             </Routes>
           </Box>
           <Footer />

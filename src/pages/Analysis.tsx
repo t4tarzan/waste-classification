@@ -32,12 +32,19 @@
  * @see AnalysisHistory
  */
 
-import React from 'react';
-import { Container, Box, Paper, Typography, Grid, Tab, Tabs } from '@mui/material';
+import React, { Suspense } from 'react';
+import { Container, Box, Paper, Typography, Grid, Tab, Tabs, CircularProgress } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import WasteAnalyzer from '../components/WasteAnalyzer/WasteAnalyzer';
 import AnalysisHistory from '../components/WasteAnalyzer/AnalysisHistory';
-import { WasteDistributionChart } from '../components/Charts/WasteDistributionChart';
+import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
+
+// Lazy load video components
+const VideoAnalyzer = React.lazy(() => 
+  import('../features/HF/video/components/VideoAnalyzer').then(module => ({
+    default: module.default
+  }))
+);
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -52,20 +59,31 @@ function TabPanel(props: TabPanelProps) {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`analysis-tabpanel-${index}`}
-      aria-labelledby={`analysis-tab-${index}`}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
     </div>
   );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `simple-tab-${index}`,
+    'aria-controls': `simple-tabpanel-${index}`,
+  };
 }
 
 const AnalysisPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [tabValue, setTabValue] = React.useState(0);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
@@ -85,29 +103,27 @@ const AnalysisPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Paper sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%', mt: 4 }}>
+        <Paper elevation={3}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange} 
               aria-label="analysis tabs"
               centered
             >
-              <Tab label="History" />
-              <Tab label="New Analysis" />
+              <Tab label="Analysis History" {...a11yProps(0)} />
+              <Tab label="New Analysis" {...a11yProps(1)} />
             </Tabs>
           </Box>
-
+          
           <TabPanel value={tabValue} index={0}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Analysis History
-                  </Typography>
-                  <AnalysisHistory userId={currentUser.uid} />
-                </Paper>
+                <Typography variant="h5" gutterBottom>
+                  Analysis History
+                </Typography>
+                {currentUser && <AnalysisHistory userId={currentUser.uid} />}
               </Grid>
             </Grid>
           </TabPanel>
@@ -115,7 +131,16 @@ const AnalysisPage: React.FC = () => {
           <TabPanel value={tabValue} index={1}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <WasteAnalyzer />
+                <ErrorBoundary>
+                  <WasteAnalyzer />
+                  <Suspense fallback={
+                    <Box display="flex" justifyContent="center" p={3}>
+                      <CircularProgress />
+                    </Box>
+                  }>
+                    <VideoAnalyzer />
+                  </Suspense>
+                </ErrorBoundary>
               </Grid>
             </Grid>
           </TabPanel>

@@ -17,6 +17,7 @@ import StorageTestComponent from './components/StorageTest/StorageTestComponent'
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import AnalysisPage from './pages/Analysis';
+import AboutUs from './pages/AboutUs';
 import { ToastContainer } from 'react-toastify';
 import VideoTest from './features/HF/video/components/VideoTest';
 
@@ -84,6 +85,7 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/about" element={<About />} />
+              <Route path="/about-us" element={<AboutUs />} />
               <Route path="/blog" element={<BlogPage />} />
               <Route path="/blog/:id" element={<BlogPost />} />
               <Route path="/tools/*" element={<ToolsPage />} />

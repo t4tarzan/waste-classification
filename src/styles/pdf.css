@@ -1,0 +1,26 @@
+.pdf-page {
+  max-width: 100%;
+  height: auto !important;
+}
+
+.pdf-page canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Ensure PDF container is responsive */
+.react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Style annotations and text layer */
+.react-pdf__Page__annotations {
+  max-width: 100%;
+}
+
+.react-pdf__Page__textContent {
+  max-width: 100%;
+}

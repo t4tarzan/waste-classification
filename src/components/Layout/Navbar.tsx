@@ -23,6 +23,7 @@ const menuItems = [
   { text: 'Waste Management', path: '/waste-management', isHash: false },
   { text: 'Tools', path: '/tools', isHash: false },
   { text: 'Blog', path: '/blog', isHash: false },
+  { text: 'About Us', path: '/about-us', isHash: false },
 ];
 
 export const Navbar = () => {

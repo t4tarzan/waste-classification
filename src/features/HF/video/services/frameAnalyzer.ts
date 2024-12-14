@@ -26,29 +26,40 @@ export class FrameAnalyzer {
   constructor(config: Partial<VideoConfig> = {}, onNotify?: (message: string) => void) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.videoElement = null;
-    this.canvas = createCanvas();
-    this.canvas.width = 640;
-    this.canvas.height = 480;
-    this.context = this.canvas.getContext('2d');
+    this.canvas = null;
+    this.context = null;
     this.frameWidth = 640;
     this.frameHeight = 480;
     this.isInitialized = false;
     this.errorHandler = new ModelErrorHandler(onNotify);
-
-    if (!this.context) {
-      logger.error('Failed to get 2D context from canvas');
-      throw new Error('Could not initialize canvas context');
-    }
-
-    this.initialize();
   }
 
   private initialize() {
     try {
+      // Only create canvas in browser environment
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = this.frameWidth;
+        this.canvas.height = this.frameHeight;
+        this.context = this.canvas.getContext('2d');
+
+        if (!this.context) {
+          logger.error('Failed to get 2D context from canvas');
+          throw new Error('Could not initialize canvas context');
+        }
+      } else {
+        // In non-browser environment, use mock
+        this.canvas = createCanvas();
+        this.canvas.width = this.frameWidth;
+        this.canvas.height = this.frameHeight;
+        this.context = this.canvas.getContext('2d');
+      }
       this.isInitialized = true;
     } catch (error) {
       const modelError = ModelErrorHandler.createModelError(error);
       modelError.type = ModelErrorType.INITIALIZATION_ERROR;
+      this.errorHandler.handleError(modelError)
+        .catch(err => logger.error('Error handler failed:', err));
       throw modelError;
     }
   }
@@ -59,6 +70,9 @@ export class FrameAnalyzer {
     }
 
     try {
+      // Initialize canvas first
+      this.initialize();
+
       // Create video element
       const videoElement = document.createElement('video');
       videoElement.muted = true;
@@ -70,7 +84,7 @@ export class FrameAnalyzer {
       const modelError = ModelErrorHandler.createModelError(error);
       modelError.type = ModelErrorType.INITIALIZATION_ERROR;
       await this.errorHandler.handleError(modelError);
-      throw new Error('Failed to initialize video elements: ' + (error instanceof Error ? error.message : String(error)));
+      throw modelError;
     }
   }
 
